@@ -55,7 +55,7 @@ pipeline {
           sh '''#!/bin/bash
             set -euo pipefail
             chmod +x gradlew
-            ./gradlew clean test
+            ./gradlew clean test bootJar
           '''
         }
       }
@@ -63,6 +63,18 @@ pipeline {
         always {
           junit allowEmptyResults: true, testResults: 'services/task-service/build/test-results/test/*.xml'
           archiveArtifacts artifacts: 'services/task-service/build/reports/tests/test/**', allowEmptyArchive: true
+        }
+      }
+    }
+
+    stage('Sanity check artifact') {
+      steps {
+        dir('services/task-service') {
+          sh '''#!/bin/bash
+            set -euo pipefail
+            ls -lah build/libs || true
+            test -f build/libs/*.jar
+          '''
         }
       }
     }
@@ -124,4 +136,5 @@ pipeline {
     success { echo "RELEASE BUILD SUCCESS: ${IMAGE}" }
     failure { echo "RELEASE BUILD FAILED" }
   }
+}
 }
