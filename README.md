@@ -3,13 +3,13 @@
 ## Overview
 TaskHub is a Spring Boot backend for managing tasks (CRUD). The list endpoint is paginated to behave well as data grows.
 
-This repository focuses on the **application**:
-- Spring Boot REST API + validation + error handling
+This repository focuses on the **application layer**:
+- Spring Boot REST API + validation + consistent error handling
 - Tests (Gradle)
-- Docker image build (used by CI)
-- Metrics via Actuator/Micrometer (`/actuator/prometheus`)
+- Docker image build (used by CI / release build)
+- Observability via Actuator + Micrometer (`/actuator/prometheus`)
 
-> Kubernetes deployment and platform provisioning are handled by Jenkins jobs configured on the server.
+> Kubernetes platform provisioning and deployments are handled by Jenkins jobs on the server.
 
 ---
 
@@ -29,28 +29,44 @@ docker compose up --build
 
 Then open:
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
+- Version: http://localhost:8080/version
 - Health: http://localhost:8080/actuator/health
 - Metrics: http://localhost:8080/actuator/prometheus
 
 ---
 
-## CI (Jenkins)
+## CI/CD (Jenkins)
 
-### Job: `taskhub-app-ci`
-Trigger:
-- Push to `develop`
+### 1) DEV pipeline — `taskhub-app-ci`
+**Trigger:** push to `develop`
 
-Pipeline:
+**What it does:**
 1. Checkout
-2. Resolve version
-3. `./gradlew clean test`
-4. Build & push Docker image (`tsingh38/taskhub:<version>-<buildNumber>`)
-5. Trivy scan gate (HIGH/CRITICAL)
-6. Triggers the DEV deploy job with the computed image tag
+2. Resolve app version from Gradle
+3. Run tests: `./gradlew clean test`
+4. Build & push Docker image to Docker Hub:
+   - `tsingh38/taskhub:<version>-<buildNumber>`
+5. Trivy scan gate (fails on **HIGH/CRITICAL**)
+6. Triggers DEV deploy job with the computed image tag
 
-Artifacts:
-- JUnit test results
+**Artifacts:**
+- JUnit test reports
 - `trivy-report.json`
+
+### 2) Release build — `taskhub-release-build`
+**Trigger:** manual (intended for PROD release flow)
+
+**Input:**
+- `RELEASE_TAG` (example: `0.1.2`)
+
+**What it does:**
+1. Checkout the Git tag `refs/tags/<RELEASE_TAG>`
+2. Build & test
+3. Build & push Docker image:
+   - `tsingh38/taskhub:<RELEASE_TAG>`
+4. Trivy scan gate (fails on **HIGH/CRITICAL**)
+
+> After the release image exists in Docker Hub, the PROD deploy job (in the infra repo) deploys it to the `prod` namespace.
 
 ---
 
@@ -59,6 +75,7 @@ Artifacts:
 | Component | DEV | PROD |
 |---|---|---|
 | Swagger UI | http://51.158.200.80:30080/swagger-ui/index.html#/ | http://51.158.200.80:30081/swagger-ui/index.html#/ |
+| Version endpoint | http://51.158.200.80:30080/version | http://51.158.200.80:30081/version |
 | Grafana | http://51.158.200.80:30030/ (env dropdown dev/prod) | same |
 | Jenkins | http://51.158.200.80:8080/ | same |
 
@@ -73,6 +90,7 @@ Artifacts:
 - `status` (enum, default `OPEN`)
 
 ### Endpoints
+- `GET /version` → returns the running app version (from Spring Boot build info)
 - `POST /tasks` → `201 Created`
 - `GET /tasks` → `200 OK` (paginated via Spring `Pageable`)
 - `GET /tasks/{id}` → `200 OK` / `404`
