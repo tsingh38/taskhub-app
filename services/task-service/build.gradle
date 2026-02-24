@@ -44,3 +44,7 @@ tasks.named('test') {
 release {
 	tagTemplate = '${version}'
 }
+
+springBoot {
+	buildInfo()
+}
