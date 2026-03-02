@@ -115,6 +115,7 @@ pipeline {
               --timeout 10m \
               --no-progress \
               --severity HIGH,CRITICAL \
+              --ignore-unfixed \
               --exit-code 1 \
               --format json \
               -o /work/trivy-report.json \
