@@ -143,13 +143,12 @@ pipeline {
          '''
        }
      }
+     post {
+       always {
+         archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true, onlyIfSuccessful: false
+       }
+     }
    }
-      post {
-        always {
-          archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true, onlyIfSuccessful: false
-        }
-      }
-    }
 
     stage('Trigger DEV Deploy') {
       steps {
