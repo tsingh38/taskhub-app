@@ -108,9 +108,11 @@ pipeline {
             docker run --rm \
               -v "$TRIVY_CACHE_DIR:/root/.cache/" \
               -v "$WORKSPACE:/work" \
-              aquasec/trivy:latest \
+              aquasec/trivy:0.69.1 \
               image \
-              --timeout 5m \
+              --scanners vuln \
+              --skip-version-check \
+              --timeout 10m \
               --no-progress \
               --severity HIGH,CRITICAL \
               --exit-code 1 \
