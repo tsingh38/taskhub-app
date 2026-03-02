@@ -102,7 +102,7 @@ pipeline {
          usernameVariable: 'DOCKER_USER',
          passwordVariable: 'DOCKER_PASS'
        )]) {
-         sh '''
+         sh '''#!/bin/bash
            set -euo pipefail
            mkdir -p "$TRIVY_CACHE_DIR"
 
@@ -143,6 +143,7 @@ pipeline {
          '''
        }
      }
+   }
       post {
         always {
           archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true, onlyIfSuccessful: false
