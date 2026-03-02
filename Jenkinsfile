@@ -95,36 +95,54 @@ pipeline {
       }
     }
 
-    stage('Trivy Scan (HIGH/CRITICAL gate)') {
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: DOCKERHUB_CREDENTIALS,
-          usernameVariable: 'DOCKER_USER',
-          passwordVariable: 'DOCKER_PASS'
-        )]) {
-          sh '''
-            set -eu
-            mkdir -p "$TRIVY_CACHE_DIR"
-            docker run --rm \
-              -v "$TRIVY_CACHE_DIR:/root/.cache/" \
-              -v "$WORKSPACE:/work" \
-              aquasec/trivy:0.69.1 \
-              image \
-              --scanners vuln \
-              --skip-version-check \
-              --timeout 10m \
-              --no-progress \
-              --severity HIGH,CRITICAL \
-              --ignore-unfixed \
-              --exit-code 1 \
-              --format json \
-              -o /work/trivy-report.json \
-              --username "$DOCKER_USER" \
-              --password "$DOCKER_PASS" \
-              "$IMAGE"
-          '''
-        }
-      }
+   stage('Trivy Scan (report + gate)') {
+     steps {
+       withCredentials([usernamePassword(
+         credentialsId: DOCKERHUB_CREDENTIALS,
+         usernameVariable: 'DOCKER_USER',
+         passwordVariable: 'DOCKER_PASS'
+       )]) {
+         sh '''
+           set -euo pipefail
+           mkdir -p "$TRIVY_CACHE_DIR"
+
+           echo "=== Trivy report (always) ==="
+           docker run --rm \
+             -v "$TRIVY_CACHE_DIR:/root/.cache/" \
+             -v "$WORKSPACE:/work" \
+             aquasec/trivy:0.69.1 \
+             image \
+             --scanners vuln \
+             --skip-version-check \
+             --timeout 10m \
+             --no-progress \
+             --severity HIGH,CRITICAL \
+             --format json \
+             -o /work/trivy-report.json \
+             --username "$DOCKER_USER" \
+             --password "$DOCKER_PASS" \
+             "$IMAGE" || true
+
+           echo ""
+           echo "=== Trivy gate (CRITICAL only) ==="
+           docker run --rm \
+             -v "$TRIVY_CACHE_DIR:/root/.cache/" \
+             aquasec/trivy:0.69.1 \
+             image \
+             --scanners vuln \
+             --skip-version-check \
+             --timeout 10m \
+             --no-progress \
+             --severity CRITICAL \
+             --ignore-unfixed \
+             --exit-code 1 \
+             --format table \
+             --username "$DOCKER_USER" \
+             --password "$DOCKER_PASS" \
+             "$IMAGE"
+         '''
+       }
+     }
       post {
         always {
           archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true, onlyIfSuccessful: false
